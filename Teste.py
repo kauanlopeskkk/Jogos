@@ -1,12 +1,16 @@
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.middleware.cors import CORSMiddleware
 import secrets
 from sqlalchemy import create_engine, Column, Integer, String , Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 
-DATABASE_URL = "sqlite:///./Jogo.db"
+
+
+
+DATABASE_URL = "sqlite:///./ListaJogos.db"
 
 engine = create_engine(DATABASE_URL,connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -15,7 +19,13 @@ MEU_USUARIO = "admin"
 MEU_SENHA = "kkk"
 app = FastAPI()
 
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 
 security = HTTPBasic()
@@ -61,54 +71,19 @@ def autenticar_usuario(credentials: HTTPBasicCredentials = Depends(security)):
 def Jogo_raiz():
     return {"mensagem": "Bem-vindo à API de Jogos!"}
 
-@app.get("/Jogos")
-def listar_Jogos(
-    page: int = 1,
-    limit: int = 10,
-    db: Session = Depends(sessao_db),
-    _: HTTPBasicCredentials = Depends(autenticar_usuario)
-):
-    if page < 1 or limit < 1:
-        
-        raise HTTPException(status_code=400, detail="Parâmetros de paginação inválidos")
-    
-    
-    jogos = db.query(JogoDB).offset((page - 1) * limit).limit(limit).all()
-    
-    if not jogos:
-        raise HTTPException(status_code=404, detail="Nenhum jogo cadastrado")
-    
-    
-    total_jogos = db.query(JogoDB).count()
-   
-
-    
-    return {
-        "page": page,
-        "limit": limit,
-        "total": total_jogos,
-        "jogos": [{"id": jogo.id,"nome_jogo": jogo.nome_jogo,"genero": jogo.genero,"plataforma": jogo.plataforma,"ano_lancamento": jogo.ano_lancamento,"desenvolvedora": jogo.desenvolvedora,"preco": jogo.preco} for jogo in jogos]
-    }
-
-
-
-
-
-
-
-@app.post("/adicionar_Jogos/{id_jogo}")
-def adicionar_Jogo(id_jogo: int, jogo: Jogo, db: Session = Depends(sessao_db), _: HTTPBasicCredentials = Depends(autenticar_usuario)):
+@app.post("/jogos")
+def adicionar_Jogo(jogo: Jogo, db: Session = Depends(sessao_db), _: HTTPBasicCredentials = Depends(autenticar_usuario)):
     db_jogo = db.query(JogoDB).filter(
         JogoDB.nome_jogo == jogo.nome_jogo,
         JogoDB.genero == jogo.genero,
         JogoDB.plataforma == jogo.plataforma,
         JogoDB.ano_lancamento == jogo.ano_lancamento,
-        JogoDB.desenvolvedora == jogo.desenvolvedora
-    ).first()
+        JogoDB.desenvolvedora == jogo.desenvolvedora,
+        JogoDB.preco == jogo.preco
+     ).first()
     if db_jogo:
         raise HTTPException(status_code=400, detail="Esse Jogo existe dentro do Banco de Dados")
     novo_jogo = JogoDB(
-        id=id_jogo,
         nome_jogo=jogo.nome_jogo,
         genero=jogo.genero,
         plataforma=jogo.plataforma,
@@ -116,6 +91,7 @@ def adicionar_Jogo(id_jogo: int, jogo: Jogo, db: Session = Depends(sessao_db), _
         desenvolvedora=jogo.desenvolvedora,
         preco=jogo.preco
     )
+
     db.add(novo_jogo)
     db.commit()
     db.refresh(novo_jogo)
@@ -128,6 +104,30 @@ def adicionar_Jogo(id_jogo: int, jogo: Jogo, db: Session = Depends(sessao_db), _
         "desenvolvedora": novo_jogo.desenvolvedora,
         "preco": novo_jogo.preco
     }}
+@app.get("/jogos")
+def listar_Jogos(
+    page: int = 1,
+    limit: int = 10,
+    db: Session = Depends(sessao_db),
+    _: HTTPBasicCredentials = Depends(autenticar_usuario)
+):
+    if page < 1 or limit < 1:
+        raise HTTPException(status_code=400, detail="Parâmetros de paginação inválidos")
+    
+    jogos = db.query(JogoDB).offset((page - 1) * limit).limit(limit).all()
+    
+    if not jogos:
+        raise HTTPException(status_code=404, detail="Nenhum jogo cadastrado")
+    
+    total_jogos = db.query(JogoDB).all()
+    
+    return {
+        "page": page,
+        "limit": limit,
+        "total": total_jogos,
+        "jogos": [{"id": jogo.id,"nome_jogo": jogo.nome_jogo,"genero": jogo.genero,"plataforma": jogo.plataforma,"ano_lancamento": jogo.ano_lancamento,"desenvolvedora": jogo.desenvolvedora,"preco": jogo.preco} for jogo in jogos]
+    }
+
 
 
 @app.put("/atualizar_Jogos/{id_jogo}")
