@@ -6,6 +6,7 @@ import secrets
 from sqlalchemy import create_engine, Column, Integer, String , Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+import asyncio
 
 
 
@@ -70,6 +71,31 @@ def autenticar_usuario(credentials: HTTPBasicCredentials = Depends(security)):
 @app.get("/")
 def Jogo_raiz():
     return {"mensagem": "Bem-vindo à API de Jogos!"}
+
+async def chamar_jogo1():
+    await asyncio.sleep(2)
+    return {"mensagem": "Jogo chamado com sucesso! 1 ."}
+
+async def chamar_jogo2():
+    await asyncio.sleep(2)
+    return {"mensagem": "Jogo chamado com sucesso! 2 ."}
+
+async def chamar_jogo3():
+    await asyncio.sleep(2)
+    return {"mensagem": "Jogo chamado com sucesso! 3 ."}
+
+@app.get("/jogo1")
+async def jogo1():
+    tarefa1 = asyncio.create_task(chamar_jogo1())
+    tarefa2 = asyncio.create_task(chamar_jogo2())
+    tarefa = asyncio.create_task(chamar_jogo3())
+
+    resultado1 = await tarefa1
+    resultado2 = await tarefa2  
+    resultado3 = await tarefa
+
+    return {"Mensagem": "Todos os jogos foram chamados com sucesso!", "Resultados": [resultado1, resultado2, resultado3]
+        }
 
 @app.post("/jogos")
 def adicionar_Jogo(jogo: Jogo, db: Session = Depends(sessao_db), _: HTTPBasicCredentials = Depends(autenticar_usuario)):
